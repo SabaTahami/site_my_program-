@@ -1,255 +1,110 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
-from openai import OpenAI
 
-# تنظیمات ساختاری و ظاهری سایت
-st.set_page_config(page_title="سامانه ابری کشوری خوارزمی", layout="wide")
+# تنظیمات اصلی صفحه
+st.set_page_config(page_title="سامانه کشوری خوارزمی", page_icon="🚀", layout="wide")
 
-if "mega_database" not in st.session_state:
-    st.session_state.mega_database = []  
-if "dynamic_lessons" not in st.session_state:
-    st.session_state.dynamic_lessons = {}  
-if "student_private_db" not in st.session_state:
-    st.session_state.student_private_db = {}  
+# استایل‌دهی راست‌چین برای زبان فارسی
+st.markdown("""
+    <style>
+    .reportview-container .main .block-container{ max-width: 90%; }
+    h1, h2, h3, h4, p, div, table, th, td, label, .stButton {
+        direction: rtl !important;
+        text-align: right !important;
+        font-family: 'Tahoma', sans-serif !important;
+    }
+    div.stButton > button:first-child {
+        background-color: #2e7d32;
+        color: white;
+        width: 100%;
+    }
+    .stAlert { direction: rtl !important; text-align: right !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# دریافت ایمن کلید هوش مصنوعی از تنظیمات سرور
-try:
-    openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except:
-    openai_client = None
+st.title("🚀 سامانه کشوری خوارزمی | پنل اختصاصی 👑")
+st.subheader("🌐 مرکز ابری پایش داده‌های آموزشی کشور")
 
-# بانک اطلاعاتی سراسری دروس کشور (نسخه جامع ارسالی شما)
-LESSONS_BANK = {
-    "کلاس اول (دبستان)": ["ریاضی", "فارسی", "علوم", "قرآن", "هنر", "ورزش", "شایستگی های عمومی"],
-    "کلاس دوم (دبستان)": ["ریاضی", "فارسی", "علوم", "قرآن", "هدیه های آسمانی", "هنر", "ورزش", "شایستگی های عمومی"],
-    "کلاس سوم (دبستان)": ["ریاضی", "فارسی", "نگارش", "علوم", "قرآن", "هدیه های آسمانی", "مطالعات اجتماعی", "هنر", "ورزش", "شایستگی های عمومی"],
-    "پایه چهارم (دبستان)": ["ریاضی", "فارسی", "نگارش", "علوم", "قرآن", "هدیه های آسمانی", "مطالعات اجتماعی", "هنر", "ورزش", "شایستگی های عمومی"],
-    "پایه پنجم (دبستان)": ["ریاضی", "فارسی", "نگارش", "علوم", "قرآن", "هدیه های آسمانی", "مطالعات اجتماعی", "هنر", "ورزش", "شایستگی های عمومی"],
-    "پایه ششم (دبستان)": ["ریاضی", "فارسی", "نگارش", "علوم", "قرآن", "هدیه های آسمانی", "مطالعات اجتماعی", "تفکر و پژوهش", "کار و فناوری", "هنر", "ورزش", "شایستگی های عمومی"],
-    "پایه هفتم (دبیرستان)": ["ریاضی", "فارسی", "انشا", "املا", "علوم", "قرآن", "پیام های آسمانی", "مطالعات اجتماعی", "تفکر و پژوهش", "کار و فناوری", "عربی؛زبان قرآن", "زبان انگلیسی", "از من تا خدا", "فرهنگ و هنر", "تربیت بدنی", "انضباط"],
-    "پایه هشتم (دبیرستان)": ["ریاضی", "فارسی", "انشا", "املا", "علوم", "قرآن", "پیام های آسمانی", "مطالعات اجتماعی", "تفکر و پژوهش", "کار و فناوری", "عربی؛زبان قرآن", "زبان انگلیسی", "از من تا خدا", "فرهنگ و هنر", "تربیت بدنی", "انضباط"],
-    "پایه نهم (دبیرستان)": ["ریاضی", "فارسی", "انشا", "املا", "علوم", "قرآن", "پیام های آسمانی", "مطالعات اجتماعی", "آمادگی دفاعی", "کار و فناوری", "عربی؛زبان قرآن", "زبان انگلیسی", "از من تا خدا", "فرهنگ و هنر", "تربیت بدنی", "انضباط"],
-    "پایه دهم ریاضی": ["ریاضی 1", "فارسی 1", "فیزیک1", "شیمی 1", "زیست شناسی 1", "دین و زندگی 1", "زبان انگلیسی 1", "عربی 1", "نگارش فارسی", "جغرافیای ایران", "آمادگی دفاعی", "تفکر و سواد رسانه ای و کارگاه کارآفرینی و تولید"],
-    "پایه یازدهم ریاضی": ["فارسی 2", "حسابان 1", "فیزیک 2", "عربی 2", "هندسه 2", "شیمی 2", "انگلیسی 2", "نگارش فارسی 2", "تاریخ معاصر ایران", "انسان و محیط زیست", "زمین شناسی", "آمار و احتمال", "آزمایشگاه و علوم", "ریاضی فیزیک 2"],
-    "پایه دوازدهم ریاضی": ["فارسی 3", "ریاضیات گسسته", "دین و زندگی 3", "هندسه 3", "نگارش فارسی 3", "انگلیسی 3", "شیمی 3", "عربی 3", "حسابان 2", "هویت اجتماعی", "فیزیک 3", "سلامت و بهداشت"],
-    "پایه دهم تجربی": ["فارسی 1", "ریاضی 1", "فیزیک 1", "شیمی 1", "زیست شناسی 1", "دین و زندگی 1", "زبان انگلیسی 1", "عربی 1", "نگارش فارسی", "جغرافیای ایران", "آمادگی دفاعی", "تفکر و سواد رسانه ای و کارگاه کارآفرینی و تولید"],
-    "پایه یازدهم تجربی": ["فارسی 2", "ریاضی 2", "زیست شناسی 2", "دین و زندگی 2", "نگارش فارسی 2", "انگلیسی 2", "آزمایشگاه علوم تجربی 2", "عربی 2", "فیزیک 2", "تاریخ معاصر ایران", "شیمی 2", "زمین شناسی 2", "انسان و محیط زیست"],
-    "پایه دوازدهم تجربی": ["فارسی 3", "ریاضی 3", "زیست شناسی 3", "دین و زندگی 3", "نگارش فارسی 3", "انگلیسی 3", "هویت اجتماعی", "عربی 3", "فیزیک 3", "شیمی 3", "سلامت و بهداشت"],
-    "پایه دهم انسانی": ["فارسی 1", "ریاضی 1", "فیزیک 1", "شیمی 1", "زیست شناسی 1", "دین و زندگی 1", "زبان انگلیسی 1", "عربی 1", "نگارش فارسی", "جغرافیای ایران", "آمادگی دفاعی", "تفکر و سواد رسانه ای و کارگاه کارآفرینی و تولید"],
-    "پایه یازدهم انسانی": ["فارسی 2", "ریاضی و آمار 2", "علوم و فنون ادبی 2", "دین و زندگی 2", "نگارش فارسی 2", "انگلیسی 2", "فلسفه", "عربی 2", "روانشناسی 2", "تاریخ 2", "جغرافیا 2", "جامعه شناسی 2", "انسان و محیط زیست"],
-    "پایه دوازدهم انسانی": ["فارسی 3", "ریاضی و آمار 3", "علوم و فنون ادبی 3", "دین و زندگی 3", "نگارش فارسی 3", "انگلیسی 3", "فلسفه", "عربی 2", "تحلیل فرهنگ", "تاریخ 3", "جغرافیا 3", "جامعه شناسی 3", "سلامت و بهداشت"],
-    "پایه دهم معارف اسلامی": ["کتاب فارسی ۱", "کتاب نگارش ۱", "کتاب عربی، زبان قرآن ۱", "کتاب انگلیسی ۱", "کتاب کار انگلیسی ۱", "کتاب علوم و فنون ادبی ۱", "کتاب ریاضی و آمار ۱", "کتاب جامعه شناسی ۱", "کتاب اقتصاد", "کتاب منطق", "کتاب تاریخ اسلام ۱", "اصول و عقاید ۱", "علوم و معارف قرآنی ۱", "اخلاق اسلامی ۱", "احکام ۱ (پسران)", "احکام ۱ (دختران)", "کتاب جغرافیای ایران", "کتاب آمادگی دفاعی", "کتاب هنر", "کتاب کارگاه کار آفرینی و تولید", "کتاب تفکر و سواد رسانه ای"],
-    "پایه یازدهم معارف اسلامی": ["کتاب فارسی ۲", "کتاب نگارش ۲", "کتاب عربی، زبان قرآن ۲", "کتاب انگلیسی ۲", "کتاب کار انگلیسی ۲", "کتاب علوم و فنون ادبی ۲", "کتاب ریاضی و آمار ۲", "کتاب جامعه شناسی ۲", "کتاب فلسفه ۱", "کتاب روانشناسی", "کتاب تاریخ اسلام ۲", "اصول و عقاید ۲", "علوم و معارف قرآنی ۲", "اخلاق اسلامی ۲", "احکام ۲", "کتاب انسان و محیط زیست"],
-    "پایه دوازدهم معارف اسلامی": ["کتاب فارسی ۳", "کتاب نگارش ۳", "کتاب عربی ، زبان قرآن ۳", "کتاب انگلیسی ۳", "کتاب کار انگلیسی ۳", "کتاب علوم و فنون ادبی ۳", "کتاب ریاضی و آمار ۳", "کتاب جامعه شناسی ۳", "کتاب فلسفه ۲", "کتاب تاریخ اسلام ۳ (ایران دوره اسلامی)", "اصول و عقاید ۳", "علوم و معارف قرآنی", "اخلاق اسلامی ۳", "احکام ۳ (روش استنباط احکام)", "کتاب مدیریت خانواده و سبک زندگی (ویژه دختران)", "کتاب مدیریت خانواده و سبک زندگی (ویژه پسران)", "کتاب سلامت و بهداشت"]
-}
+# ایجاد یک حافظه موقت (Session State) برای ذخیره دانش‌آموزان ثبت‌نامی
+if 'students_db' not in st.session_state:
+    st.session_state['students_db'] = []
 
-DESCRIPTIVE_SCALE = {"خیلی خوب": 4, "خوب": 3, "قابل قبول": 2, "نیاز به تلاش مجدد": 1}
+# منوی اصلی برنامه در سایدبار (منوی کناری)
+st.sidebar.markdown("<h2 style='text-align: right;'>منوی مدیریت</h2>", unsafe_allow_html=True)
+page = st.sidebar.radio("یک بخش را انتخاب کنید:", ["ثبت‌نام دانش‌آموز جدید", "مشاهده و مدیریت بانک اطلاعاتی", "گزارش‌گیری و آمار کشوری"])
 
-def get_rankings():
-    if not st.session_state.mega_database:
-        return pd.DataFrame()
-    df = pd.DataFrame(st.session_state.mega_database)
-    df['numeric_score'] = df.apply(lambda r: DESCRIPTIVE_SCALE.get(r['score'], r['score']) if r['score_type'] == "توصیفی" else float(r['score']), axis=1)
-    student_averages = df.groupby(['province', 'city', 'school', 'classroom', 'group', 'student_name', 'score_type'])['numeric_score'].mean().reset_index()
-    student_averages['رتبه در کلاس'] = student_averages.groupby(['classroom'])['numeric_score'].rank(ascending=False, method='min')
-    student_averages['رتبه در مدرسه'] = student_averages.groupby(['school'])['numeric_score'].rank(ascending=False, method='min')
-    student_averages['رتبه در شهر'] = student_averages.groupby(['city'])['numeric_score'].rank(ascending=False, method='min')
-    student_averages['رتبه در استان'] = student_averages.groupby(['province'])['numeric_score'].rank(ascending=False, method='min')
-    return student_averages
-
-st.sidebar.title("🔐 پورتال احراز هویت کشوری")
-theme_choice = st.sidebar.selectbox("پوسته ظاهری سایت:", ["تاریک (پیش‌فرض)", "روشن"])
-if theme_choice == "روشن":
-    st.markdown("""<style>main { background-color: #ffffff; color: #000000; }</style>""", unsafe_allow_html=True)
-
-st.sidebar.markdown("---")
-user_role = st.sidebar.radio("نقش کاربری شما در سامانه:", ["👑 مدیر کل (شما)", "👩‍🏫 معلم و کادر آموزشی", "👨‍🎓 دانش‌آموز"])
-current_user_name = st.sidebar.text_input("نام و نام خانوادگی ورود:", value="علی محمدی")
-
-st.title(f"🚀 سامانه کشوری خوارزمی | پنل اختصاصی {user_role}")
-
-# ۱. پنل مدیر کل
-if user_role == "👑 مدیر کل (شما)":
-    st.header("🌐 مرکز ابری پایش داده‌های آموزشی کشور")
-    rank_df = get_rankings()
+# ----------------- بخش اول: ثبت نام -----------------
+if page == "ثبت‌نام دانش‌آموز جدید":
+    st.header("📝 فرم ثبت‌نام طرح‌ها و مسابقات")
     
-    if rank_df.empty:
-        st.info("دیتابیس سراسری کشور در حال حاضر داده‌ای ندارد.")
+    with st.form("registration_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            name = st.text_input("نام و نام خانوادگی دانش‌آموز:")
+            national_id = st.text_input("کد ملی:")
+            phone = st.text_input("شماره تماس:")
+        with col2:
+            province = st.selectbox("استان:", ["تهران", "خراسان رضوی", "اصفهان", "فارس", "آذربایجان شرقی", "مازندران", "خوزستان", "سایر"])
+            grade = st.selectbox("پایه تحصیلی:", ["هفتم", "هشتم", "نهم", "دهم", "یازدهم", "دوازدهم"])
+            field = st.selectbox("محور مسابقه (طرح خوارزمی):", ["پژوهش", "دست‌سازه", "زبان و ادبیات فارسی", "زبان انگلیسی", "ریاضیات", "فعالیت‌های آزمایشگاهی", "برنامه‌نویسی و هوش مصنوعی"])
+            
+        submit_btn = st.form_submit_button("ثبت قطعی در دیتابیس ابری")
+        
+        if submit_btn:
+            if name and national_id:
+                # ذخیره در حافظه
+                new_student = {
+                    "نام و نام خانوادگی": name,
+                    "کد ملی": national_id,
+                    "استان": province,
+                    "پایه تحصیلی": grade,
+                    "محور مسابقه": field,
+                    "شماره تماس": phone,
+                    "وضعیت تایید": "در حال بررسی اولیه"
+                }
+                st.session_state['students_db'].append(new_student)
+                st.success(f"✅ اطلاعات دانش‌آموز '{name}' با موفقیت در شبکه سراسری ثبت شد.")
+            else:
+                st.error("❌ لطفا فیلدهای ضروری (نام و کد ملی) را پر کنید.")
+
+# ----------------- بخش دوم: مشاهده و مدیریت -----------------
+elif page == "مشاهده و مدیریت بانک اطلاعاتی":
+    st.header("📊 لیست دانش‌آموزان ثبت‌نام شده")
+    
+    if len(st.session_state['students_db']) == 0:
+        st.info(".دیتابیس سراسری کشور در حال حاضر داده‌ای ندارد. از منوی کناری وارد بخش ثبت‌نام شوید")
     else:
-        st.subheader("🔍 مانیتورینگ زنده و فیلترینگ چند لایه کشوری")
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            sel_prov = st.multiselect("استان‌ها:", rank_df['province'].unique())
-            sel_city = st.multiselect("شهرها/مناطق:", rank_df['city'].unique())
-        with col_f2:
-            sel_school = st.multiselect("مدارس:", rank_df['school'].unique())
-            sel_group = st.multiselect("گروه‌بندی‌های خاص:", rank_df['group'].unique())
+        df = pd.DataFrame(st.session_state['students_db'])
+        
+        # فیلترهای جستجو
+        search_query = st.text_input("🔍 جستجو بر اساس نام یا کد ملی:")
+        if search_query:
+            df = df[df['نام و نام خانوادگی'].str.contains(search_query) | df['کد ملی'].str.contains(search_query)]
             
-        f_df = rank_df.copy()
-        if sel_prov: f_df = f_df[f_df['province'].isin(sel_prov)]
-        if sel_city: f_df = f_df[f_df['city'].isin(sel_city)]
-        if sel_school: f_df = f_df[f_df['school'].isin(sel_school)]
-        if sel_group: f_df = f_df[f_df['group'].isin(sel_group)]
+        st.dataframe(df, use_container_width=True)
         
-        st.dataframe(f_df[['student_name', 'classroom', 'school', 'city', 'province', 'group', 'رتبه در کلاس', 'رتبه در مدرسه', 'رتبه در شهر', 'رتبه در استان']])
-        
-        st.markdown("---")
-        st.subheader("🤖 مصاحبه مستقیم چت‌جی‌پی‌تی با کلان‌داده")
-        admin_query = st.text_input("به عنوان مدیر کل، مایلید هوش مصنوعی چه تحلیلی روی این اطلاعات انجام دهد؟")
-        if admin_query and st.button("تحلیل ساختاری داده‌ها"):
-            if openai_client is None:
-                st.error("کلید هوش مصنوعی (API Key) در تنظیمات سرور ثبت نشده است.")
-            else:
-                with st.spinner("در حال ارتباط با ChatGPT..."):
-                    try:
-                        response = openai_client.chat.completions.create(
-                            model="gpt-4o",
-                            messages=[
-                                {"role": "system", "content": f"تو مشاور ارشد آموزشی پلتفرم کشوری خوارزمی هستی. این دیتابیس را تحلیل کن:\n{f_df.to_string()}"},
-                                {"role": "user", "content": admin_query}
-                            ]
-                        )
-                        st.success(response.choices[0].message.content)
-                    except Exception as e:
-                        st.error(f"خطا: {str(e)}")
+        # امکان دانلود فایل اکسل داده‌ها
+        csv = df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 دانلود کل بانک اطلاعاتی (فایل CSV مخصوص اکسل)",
+            data=csv,
+            file_name='khwarizmi_students_database.csv',
+            mime='text/csv',
+        )
 
-# ۲. پنل معلم
-elif user_role == "👩‍🏫 معلم و کادر آموزشی":
-    tab_manage, tab_score = st.tabs(["🛠️ مدیریت دروس داینامیک کلاس", "📝 ثبت نمرات رسمی و رتبه‌ها"])
+# ----------------- بخش سوم: آمار -----------------
+elif page == "گزارش‌گیری و آمار کشوری":
+    st.header("📈 نمودارها و آمار لحظه‌ای کشور")
     
-    st.sidebar.subheader("📍 تعیین ساختار مکانی کلاس")
-    m_province = st.sidebar.text_input("استان محل خدمت:", "خراسان رضوی")
-    m_city = st.sidebar.text_input("شهر/منطقه:", "مشهد")
-    m_school = st.sidebar.text_input("نام مدرسه:", "دبیرستان خوارزمی")
-    m_class = st.sidebar.text_input("کلاس:", "کلاس ۱۰۰۱")
-    m_group = st.sidebar.text_input("گروه‌بندی تخصصی (اختیاری):", "رشته ریاضی")
-    class_key = f"{m_school}_{m_class}_{m_group}"
-    
-    with tab_manage:
-        st.subheader("🛠️ سفارشی‌سازی کتاب‌ها و دروس این کلاس")
-        grade_select = st.selectbox("پایه پیش‌فرض کلاس را انتخاب کنید:", list(LESSONS_BANK.keys()))
+    if len(st.session_state['students_db']) == 0:
+        st.info("داده‌ای برای تحلیل آماری وجود ندارد.")
+    else:
+        df = pd.DataFrame(st.session_state['students_db'])
         
-        if class_key not in st.session_state.dynamic_lessons:
-            st.session_state.dynamic_lessons[class_key] = list(LESSONS_BANK[grade_select])
-            
-        st.write(f"📚 دروس فعال کنونی: **{', '.join(st.session_state.dynamic_lessons[class_key])}**")
-        
-        col_a, col_d = st.columns(2)
-        with col_a:
-            add_l = st.text_input("افزودن درس جدید:")
-            if st.button("➕ اضافه کردن درس"):
-                if add_l and add_l not in st.session_state.dynamic_lessons[class_key]:
-                    st.session_state.dynamic_lessons[class_key].append(add_l)
-                    st.success(f"درس {add_l} اضافه شد.")
-                    st.rerun()
-        with col_d:
-            del_l = st.selectbox("حذف درس:", st.session_state.dynamic_lessons[class_key])
-            if st.button("❌ حذف درس"):
-                st.session_state.dynamic_lessons[class_key].remove(del_l)
-                st.warning(f"درس {del_l} حذف شد.")
-                st.rerun()
-
-    with tab_score:
-        st.subheader("📝 ثبت نمرات و مشاهده جایگاه تحصیلی")
-        student_name = st.text_input("نام و نام خانوادگی دانش‌آموز:")
-        chosen_lesson = st.selectbox("انتخاب درس مربوطه:", st.session_state.dynamic_lessons.get(class_key, []))
-        
-        is_descriptive = "دبستان" in grade_select
-        
-        if is_descriptive:
-            score_input = st.selectbox("رتبه توصیفی کارنامه:", list(DESCRIPTIVE_SCALE.keys()))
-        else:
-            score_input = st.number_input("نمره کارنامه (۰ تا ۲۰):", min_value=0.0, max_value=20.0, step=0.25)
-            
-        test_date = st.date_input("تاریخ ثبت آزمون:")
-        
-        if st.button("💾 ثبت کارنامه در دیتابیس کل کشور"):
-            if not student_name:
-                st.error("لطفاً نام دانش‌آموز را مشخص کنید.")
-            else:
-                st.session_state.mega_database.append({
-                    "province": m_province, "city": m_city, "school": m_school,
-                    "classroom": m_class, "group": m_group, "student_name": student_name,
-                    "lesson": chosen_lesson, "score": score_input, "score_type": "توصیفی" if is_descriptive else "عددی",
-                    "date": str(test_date)
-                })
-                st.success(f"اطلاعات با موفقیت یکپارچه شد.")
-                
-        st.markdown("---")
-        st.subheader("📊 رتبه‌بندی دانش‌آموزان کلاس شما")
-        r_df = get_rankings()
-        if not r_df.empty:
-            st.dataframe(r_df[r_df['classroom'] == m_class])
-
-# ۳. پنل دانش‌آموز
-elif user_role == "👨‍🎓 دانش‌آموز":
-    st.info("💡 توجه: رتبه‌بندی‌های رقابتی مستقیم جهت حفظ سلامت روان دانش‌آموزان قفل است و فرآیند به شکل ارزیابی فردی نمایش داده می‌شود.")
-    
-    tab_official, tab_private, tab_tools = st.tabs(["📋 کارنامه رسمی معلم", "🔒 دستیار شخصی (کاملاً محرمانه شما)", "✨ ابزارهای هوش مصنوعی"])
-    
-    with tab_official:
-        st.subheader("نمرات رسمی تایید شده شما")
-        m_df = pd.DataFrame(st.session_state.mega_database) if st.session_state.mega_database else pd.DataFrame()
-        if m_df.empty or current_user_name not in m_df['student_name'].values:
-            st.warning("هنوز کارنامه‌ای برای شما ثبت نشده است.")
-        else:
-            st.table(m_df[m_df['student_name'] == current_user_name][['lesson', 'score', 'score_type', 'date']])
-            
-    with tab_private:
-        st.subheader("🔒 صندوقچه محرمانه دستیار شخصی")
-        st.caption("داده‌های این لایه کاملاً در مرورگر شما پردازش شده و کادر مدرسه به آن دسترسی ندارند.")
-        
-        if current_user_name not in st.session_state.student_private_db:
-            st.session_state.student_private_db[current_user_name] = []
-            
-        p_grade = st.selectbox("پایه تحصیلی خود را انتخاب کنید:", list(LESSONS_BANK.keys()), key="p_grade")
-        is_p_descriptive = "دبستان" in p_grade
-        
-        col_p1, col_p2 = st.columns(2)
-        with col_p1:
-            p_lesson = st.selectbox("انتخاب کتاب:", LESSONS_BANK[p_grade], key="p_less")
-            if is_p_descriptive:
-                p_score = st.selectbox("نمره توصیفی فرضی:", list(DESCRIPTIVE_SCALE.keys()), key="p_sc")
-            else:
-                p_score = st.number_input("نمره عددی فرضی:", min_value=0.0, max_value=20.0, step=0.25, key="p_sc")
-                
-            if st.button("➕ افزودن نمره به صندوقچه شخصی"):
-                st.session_state.student_private_db[current_user_name].append({
-                    "lesson": p_lesson, "score": p_score, "type": "توصیفی" if is_p_descriptive else "عددی"
-                })
-                st.success("ثبت فرضی انجام شد.")
-                
-        with col_p2:
-            st.write("📊 کارنامه شخصی فرضی:")
-            p_df = pd.DataFrame(st.session_state.student_private_db[current_user_name])
-            if not p_df.empty:
-                st.table(p_df)
-                if not is_p_descriptive:
-                    p_df['score'] = p_df['score'].astype(float)
-                    st.metric("معدل کل فرضی", f"{p_df['score'].mean():.2f}")
-                    fig = px.line(p_df, x="lesson", y="score", title="نمودار تحلیل روند فردی", markers=True)
-                    st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.write("صندوقچه محرمانه شما خالی است.")
-
-    with tab_tools:
-        st.subheader("🤖 چت‌باکس مشاور تحصیلی همراه")
-        st_query = st.text_input("سوال خود را از مشاور بپرسید...")
-        if st_query and st.button("پاسخ هوشمند"):
-            if openai_client is None:
-                st.error("سیستم هوش مصنوعی روی سرور تنظیم نشده است.")
-            else:
-                with st.spinner("در حال دریافت پاسخ..."):
-                    try:
-                        response = openai_client.chat.completions.create(
-                            model="gpt-4o",
-                            messages=[
-                                {"role": "system", "content": "تو یک مشاور تحصیلی باانگیزه و دلسوز برای دانش‌آموزان ایرانی هستی."},
-                                {"role": "user", "content": st_query}
-                            ]
-                        )
-                        st.info(response.choices[0].message.content)
-                    except:
-                        st.error("خطا در ارتباط با هوش مصنوعی.")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("تعداد ثبت‌نامی‌ها بر اساس استان")
+            st.bar_chart(df['استان'].value_counts())
+        with col2:
+            st.subheader("محبوبیت محورهای مسابقه")
+            st.bar_chart(df['محور مسابقه'].value_counts())
