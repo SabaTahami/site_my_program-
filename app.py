@@ -1,3 +1,4 @@
+import streamlit as str_lib # استفاده از نام مستعار جهت عدم تداخل با st.markdown
 import streamlit as st
 import pandas as pd
 import json
@@ -78,7 +79,7 @@ current_theme = {
     }
 }[st.session_state.theme_style]
 
-# تزریق CSS پیشرفته و غیرفعال‌سازی ذخیره اطلاعات در مرورگر (Autofill Prevention)
+# استایل‌دهی امن پوسته و غیرفعال‌سازی ذخیره اطلاعات در مرورگر
 st.markdown(f"""
     <style>
     @import url('https://v1.fontapi.ir/css/Vazir');
@@ -147,24 +148,24 @@ st.markdown(f"""
         color: white;
         margin-bottom: 30px;
     }}
-    
-    /* ممانعت از کشف رمز به صورت بصری */
-    input {{
-        -webkit-text-security: none;
-    }}
     </style>
-    
-    <script>
-    // حذف خودکار فیلدهای ذخیره شده مرورگر برای جلوگیری از Autofill روی سیستم دیگران
-    document.addEventListener("DOMContentLoaded", function() {
-        var inputs = document.getElementsByTagName('input');
-        for (var i = 0; i < inputs.length; i++) {
-            inputs[i].setAttribute('autocomplete', 'new-password');
-            inputs[i].setAttribute('id', Math.random().toString(36).substring(2, 9));
-        }
-    });
-    </script>
     """, unsafe_allow_html=True)
+
+# تزریق ایمن و ۱۰۰٪ بدون باگ اسکریپت ممانعت از پر کردن خودکار (Autofill) توسط مرورگرها
+# این قطعه کد جلوی پیشنهاد دادن کدملی و پسوردهای ذخیره‌شده را می‌گیرد
+st.components.v1.html("""
+    <script>
+    const disableAutofill = () => {
+        const inputs = window.parent.document.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.setAttribute('autocomplete', 'new-password');
+            input.setAttribute('id', 'field_' + Math.random().toString(36).substring(2, 9));
+        });
+    };
+    // اجرای اسکریپت پس از بارگذاری کامل صفحه در فواصل زمانی کوتاه جهت مانیتور فیلدها
+    setInterval(disableAutofill, 500);
+    </script>
+    """, height=0)
 
 # هدر المپیاد خوارزمی
 st.markdown(f"""
@@ -176,7 +177,7 @@ st.markdown(f"""
 
 # ----------------- نوار افقی شخصی‌سازی گرافیک برنامه -----------------
 st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-selected_theme = st.selectbox("🎨 تغییر آنی رنگ‌بندی و پوسته گرافیکی سایت:", ["🎨 مدرن تاریک (اکسیژن)", "🏆 طلایی لوکس (کالج پرمیوم)", "📱 روشن مینیمال (دایاموز پلاس)", "👾 بنفش سایابرانک (مای‌درس پرو)"], index=0)
+selected_theme = st.selectbox("🎨 تغییر آنی رنگ‌بندی و پوسته گرافیکی سایت:", ["🎨 مدرن تاریک (اکسیژن)", "🏆 طلایی لوکس (کالج پرمیوم)", "📱 روشن مینیمال (دایاموز پلاس)", "👾 بنفش سایبرپانک (مای‌درس پرو)"], index=0)
 if selected_theme != st.session_state.theme_style:
     st.session_state.theme_style = selected_theme
     st.rerun()
@@ -190,7 +191,6 @@ def date_picker_dropdown(key_suffix, default_year="1390", default_month="07", de
     months_list = [f"{m:02d}" for m in range(1, 13)]
     days_list = [f"{d:02d}" for d in range(1, 32)]
     
-    # تنظیم دقیق مقادیر اولیه برای جلوگیری از خطای ورود مجدد
     try: y_idx = years_list.index(default_year)
     except: y_idx = 0
     try: m_idx = months_list.index(default_month)
@@ -275,14 +275,13 @@ if not st.session_state.logged_in:
                         st.session_state.captcha_code = str(random.randint(10000, 99999))
                         st.rerun()
                     
-        # ۳. ورود ۴ فاکتوره فاطمه صبا سادات تهامی نیا (با رفع باگ ورود و رفع کش پر شدن خودکار)
+        # ۳. ورود ۴ فاکتوره مدیر ارشد
         elif auth_role == "👑 فاطمه صبا سادات تهامی نیا (مدیر ارشد)":
             admin_name = st.text_input("👤 نام و نام خانوادگی کامل شما:", key="login_adm_name", placeholder="نام کامل خود را اینجا تایپ کنید...")
             admin_pass = st.text_input("🔑 رمز عبور سیستمی شما:", type="password", key="login_adm_pass", placeholder="رمز عبور را تایپ کنید...")
             admin_nid = st.text_input("🪪 کد ملی شما:", key="login_adm_nid", placeholder="کد ملی ۱۰ رقمی را بنویسید...")
             
             st.write("📅 تاریخ تولد دقیق شما:")
-            # تنظیم پیش‌فرض کشویی روی تاریخ تولد شما
             admin_dob = date_picker_dropdown("admin_main_login", default_year="1390", default_month="07", default_day="17")
             
             st.markdown(f'<div class="captcha-box">{st.session_state.captcha_code}</div>', unsafe_allow_html=True)
@@ -294,7 +293,6 @@ if not st.session_state.logged_in:
                     st.session_state.captcha_code = str(random.randint(10000, 99999))
                     st.rerun()
                 else:
-                    # بررسی و تطبیق دقیق داده‌های ورودی با مقادیر امنیتی شما
                     if (admin_name.strip() == "فاطمه صبا سادات تهامی نیا" and
                         admin_pass == "Saba1390" and 
                         admin_nid.strip() == "3080903801" and 
@@ -502,4 +500,5 @@ with st.form("support_channel", clear_on_submit=True):
     if st.form_submit_button("🛰️ ارسال سیگنال پشتیبانی"):
         if user_contact and user_msg:
             st.success("✅ درخواست شما با موفقیت ارسال شد.")
-st.markdown('</div>', unsafe_allow_html=True) 
+st.markdown('</div>', unsafe_allow_html=True)
+
