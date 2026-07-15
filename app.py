@@ -44,7 +44,7 @@ if "current_user_data" not in st.session_state:
 if "captcha_code" not in st.session_state:
     st.session_state.captcha_code = str(random.randint(10000, 99999))
 if "recovery_step" not in st.session_state:
-    st.session_state.recovery_step = 0  # 0: None, 1: Enter Phone, 2: Enter Code, 3: New Password
+    st.session_state.recovery_step = 0  
 if "recovery_phone" not in st.session_state:
     st.session_state.recovery_phone = ""
 if "sent_otp" not in st.session_state:
@@ -78,7 +78,7 @@ current_theme = {
     }
 }[st.session_state.theme_style]
 
-# تزریق CSS پیشرفته و طراحی کارت کپچای گرافیکی
+# تزریق CSS پیشرفته و غیرفعال‌سازی ذخیره اطلاعات در مرورگر (Autofill Prevention)
 st.markdown(f"""
     <style>
     @import url('https://v1.fontapi.ir/css/Vazir');
@@ -107,7 +107,6 @@ st.markdown(f"""
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
     }}
     
-    /* کارت نمایش کد امنیتی شبیه تصویر */
     .captcha-box {{
         background: linear-gradient(135deg, #1f2937, #111827);
         border: 2px dashed {current_theme['accent']};
@@ -148,7 +147,23 @@ st.markdown(f"""
         color: white;
         margin-bottom: 30px;
     }}
+    
+    /* ممانعت از کشف رمز به صورت بصری */
+    input {{
+        -webkit-text-security: none;
+    }}
     </style>
+    
+    <script>
+    // حذف خودکار فیلدهای ذخیره شده مرورگر برای جلوگیری از Autofill روی سیستم دیگران
+    document.addEventListener("DOMContentLoaded", function() {
+        var inputs = document.getElementsByTagName('input');
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].setAttribute('autocomplete', 'new-password');
+            inputs[i].setAttribute('id', Math.random().toString(36).substring(2, 9));
+        }
+    });
+    </script>
     """, unsafe_allow_html=True)
 
 # هدر المپیاد خوارزمی
@@ -161,21 +176,35 @@ st.markdown(f"""
 
 # ----------------- نوار افقی شخصی‌سازی گرافیک برنامه -----------------
 st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-selected_theme = st.selectbox("🎨 تغییر آنی رنگ‌بندی و پوسته گرافیکی سایت:", ["🎨 مدرن تاریک (اکسیژن)", "🏆 طلایی لوکس (کالج پرمیوم)", "📱 روشن مینیمال (دایاموز پلاس)", "👾 بنفش سایبرپانک (مای‌درس پرو)"], index=0)
+selected_theme = st.selectbox("🎨 تغییر آنی رنگ‌بندی و پوسته گرافیکی سایت:", ["🎨 مدرن تاریک (اکسیژن)", "🏆 طلایی لوکس (کالج پرمیوم)", "📱 روشن مینیمال (دایاموز پلاس)", "👾 بنفش سایابرانک (مای‌درس پرو)"], index=0)
 if selected_theme != st.session_state.theme_style:
     st.session_state.theme_style = selected_theme
     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------- تابع کمکی برای ساخت کشویی تاریخ تولد -----------------
-def date_picker_dropdown(key_suffix):
+def date_picker_dropdown(key_suffix, default_year="1390", default_month="07", default_day="17"):
     col_y, col_m, col_d = st.columns(3)
+    
+    years_list = [str(y) for y in range(1350, 1401)]
+    months_list = [f"{m:02d}" for m in range(1, 13)]
+    days_list = [f"{d:02d}" for d in range(1, 32)]
+    
+    # تنظیم دقیق مقادیر اولیه برای جلوگیری از خطای ورود مجدد
+    try: y_idx = years_list.index(default_year)
+    except: y_idx = 0
+    try: m_idx = months_list.index(default_month)
+    except: m_idx = 0
+    try: d_idx = days_list.index(default_day)
+    except: d_idx = 0
+    
     with col_y:
-        year = st.selectbox("سال تولد:", [str(y) for y in range(1350, 1400)], index=40, key=f"year_{key_suffix}")
+        year = st.selectbox("سال تولد:", years_list, index=y_idx, key=f"year_{key_suffix}")
     with col_m:
-        month = st.selectbox("ماه تولد:", [f"{m:02d}" for m in range(1, 13)], index=6, key=f"month_{key_suffix}")
+        month = st.selectbox("ماه تولد:", months_list, index=m_idx, key=f"month_{key_suffix}")
     with col_d:
-        day = st.selectbox("روز تولد:", [f"{d:02d}" for d in range(1, 32)], index=16, key=f"day_{key_suffix}")
+        day = st.selectbox("روز تولد:", days_list, index=d_idx, key=f"day_{key_suffix}")
+        
     return f"{year}/{month}/{day}"
 
 # ----------------- گیت اصلی احراز هویت و ورود -----------------
@@ -191,14 +220,13 @@ if not st.session_state.logged_in:
         
         # ۱. ورود دانش‌آموزان
         if auth_role == "🎯 دانش‌آموزان":
-            st_name = st.text_input("👤 نام و نام خانوادگی کامل:")
-            st_nid = st.text_input("🪪 کد ملی:")
+            st_name = st.text_input("👤 نام و نام خانوادگی کامل:", key="login_st_name", placeholder="وارد کنید...")
+            st_nid = st.text_input("🪪 کد ملی:", key="login_st_nid", placeholder="وارد کنید...")
             st.write("📅 تاریخ تولد:")
-            st_dob = date_picker_dropdown("student")
+            st_dob = date_picker_dropdown("student", default_year="1389", default_month="05", default_day="12")
             
-            # فیلد کد امنیتی
             st.markdown(f'<div class="captcha-box">{st.session_state.captcha_code}</div>', unsafe_allow_html=True)
-            user_captcha = st.text_input("🔢 کد امنیتی ۵ رقمی بالا را وارد کنید:")
+            user_captcha = st.text_input("🔢 کد امنیتی ۵ رقمی بالا را وارد کنید:", key="login_st_captcha")
             
             if st.button("🔓 ورود دانش‌آموز"):
                 if user_captcha != st.session_state.captcha_code:
@@ -222,13 +250,13 @@ if not st.session_state.logged_in:
                         st.session_state.captcha_code = str(random.randint(10000, 99999))
                         st.rerun()
         
-        # ۲. ورود معلمان با بررسی دیتابیس فایل JSON
+        # ۲. ورود معلمان
         elif auth_role == "👩‍🏫 معلمان و داوران ثبت‌نامی":
-            t_phone = st.text_input("📞 شماره موبایل (به عنوان نام کاربری):")
-            t_pass = st.text_input("🔑 رمز عبور ورود:", type="password")
+            t_phone = st.text_input("📞 شماره موبایل (نام کاربری ورود):", key="login_t_phone", placeholder="وارد کنید...")
+            t_pass = st.text_input("🔑 رمز عبور ورود:", type="password", key="login_t_pass", placeholder="وارد کنید...")
             
             st.markdown(f'<div class="captcha-box">{st.session_state.captcha_code}</div>', unsafe_allow_html=True)
-            user_captcha = st.text_input("🔢 کد امنیتی ۵ رقمی بالا را وارد کنید:")
+            user_captcha = st.text_input("🔢 کد امنیتی ۵ رقمی بالا را وارد کنید:", key="login_t_captcha")
             
             if st.button("🔓 ورود به پنل معلمان"):
                 if user_captcha != st.session_state.captcha_code:
@@ -247,16 +275,18 @@ if not st.session_state.logged_in:
                         st.session_state.captcha_code = str(random.randint(10000, 99999))
                         st.rerun()
                     
-        # ۳. ورود ۴ فاکتوره صاحب سایت (فاطمه صبا سادات تهامی نیا)
+        # ۳. ورود ۴ فاکتوره فاطمه صبا سادات تهامی نیا (با رفع باگ ورود و رفع کش پر شدن خودکار)
         elif auth_role == "👑 فاطمه صبا سادات تهامی نیا (مدیر ارشد)":
-            admin_name = st.text_input("👤 نام و نام خانوادگی:")
-            admin_pass = st.text_input("🔑 رمز عبور سیستمی:", type="password")
-            admin_nid = st.text_input("🪪 کد ملی مدیریت:")
-            st.write("📅 تاریخ تولد مدیریت:")
-            admin_dob = date_picker_dropdown("admin")
+            admin_name = st.text_input("👤 نام و نام خانوادگی کامل شما:", key="login_adm_name", placeholder="نام کامل خود را اینجا تایپ کنید...")
+            admin_pass = st.text_input("🔑 رمز عبور سیستمی شما:", type="password", key="login_adm_pass", placeholder="رمز عبور را تایپ کنید...")
+            admin_nid = st.text_input("🪪 کد ملی شما:", key="login_adm_nid", placeholder="کد ملی ۱۰ رقمی را بنویسید...")
+            
+            st.write("📅 تاریخ تولد دقیق شما:")
+            # تنظیم پیش‌فرض کشویی روی تاریخ تولد شما
+            admin_dob = date_picker_dropdown("admin_main_login", default_year="1390", default_month="07", default_day="17")
             
             st.markdown(f'<div class="captcha-box">{st.session_state.captcha_code}</div>', unsafe_allow_html=True)
-            user_captcha = st.text_input("🔢 کد امنیتی ۵ رقمی بالا را وارد کنید:")
+            user_captcha = st.text_input("🔢 کد امنیتی ۵ رقمی بالا را وارد کنید:", key="login_adm_captcha")
             
             if st.button("🔓 ورود به هسته مدیریت کل"):
                 if user_captcha != st.session_state.captcha_code:
@@ -264,17 +294,18 @@ if not st.session_state.logged_in:
                     st.session_state.captcha_code = str(random.randint(10000, 99999))
                     st.rerun()
                 else:
-                    # تطبیق مشخصات خواسته شده شما به صورت دقیق
+                    # بررسی و تطبیق دقیق داده‌های ورودی با مقادیر امنیتی شما
                     if (admin_name.strip() == "فاطمه صبا سادات تهامی نیا" and
                         admin_pass == "Saba1390" and 
                         admin_nid.strip() == "3080903801" and 
                         admin_dob == "1390/07/17"):
+                        
                         st.session_state.logged_in = True
                         st.session_state.user_role = "admin"
-                        st.success("🔓 دسترسی ریشه ایمن صادر شد. خوش آمدید مدیر کل!")
+                        st.success("🔓 دسترسی ریشه فوق‌امنیتی صادر شد. مدیر کل فاطمه صبا سادات تهامی نیا خوش آمدید!")
                         st.rerun()
                     else:
-                        st.error("❌ مشخصات امنیتی ۴ فاکتوره با اطلاعات صاحب سایت مغایرت دارد!")
+                        st.error("❌ اطلاعات ۴ فاکتوره تطبیق نداشت! لطفاً مطمئن شوید اطلاعات را دقیقاً وارد کرده‌اید.")
                         st.session_state.captcha_code = str(random.randint(10000, 99999))
                         st.rerun()
                     
@@ -285,11 +316,11 @@ if not st.session_state.logged_in:
         st.subheader("📝 ثبت‌نام رسمی معلمان و کادر مدارس")
         
         with st.form("teacher_register_form"):
-            reg_name = st.text_input("👤 نام و نام خانوادگی کامل:")
-            reg_phone = st.text_input("📞 شماره موبایل (به عنوان نام کاربری ورود):")
-            reg_national_id = st.text_input("🪪 کد ملی:")
-            reg_school = st.text_input("🏫 نام مدرسه:")
-            reg_pass = st.text_input("🔑 تعیین رمز عبور:", type="password")
+            reg_name = st.text_input("👤 نام و نام خانوادگی کامل:", key="reg_name_val")
+            reg_phone = st.text_input("📞 شماره موبایل (نام کاربری):", key="reg_phone_val")
+            reg_national_id = st.text_input("🪪 کد ملی:", key="reg_nid_val")
+            reg_school = st.text_input("🏫 نام مدرسه:", key="reg_sch_val")
+            reg_pass = st.text_input("🔑 تعیین رمز عبور:", type="password", key="reg_pass_val")
             
             submit_reg = st.form_submit_button("🚀 ایجاد حساب کاربری و ذخیره در سرور")
             if submit_reg:
@@ -297,7 +328,6 @@ if not st.session_state.logged_in:
                     if reg_phone in teachers_database:
                         st.error("❌ این شماره موبایل قبلاً ثبت شده است!")
                     else:
-                        # ذخیره‌سازی فوری در فایل json
                         teachers_database[reg_phone] = {
                             "name": reg_name,
                             "national_id": reg_national_id,
@@ -305,21 +335,20 @@ if not st.session_state.logged_in:
                             "password": reg_pass
                         }
                         save_teachers(teachers_database)
-                        st.success("✅ حساب شما با موفقیت ساخته شد! حالا می‌توانید از تب اول وارد شوید.")
+                        st.success("✅ حساب کاربری با موفقیت ایجاد و ذخیره شد.")
                 else:
                     st.error("❌ تکمیل تمامی فیلدها الزامی است.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with auth_tab3:
-        # ----------------- گیت بازیابی رمز عبور معلمان -----------------
         st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-        st.subheader("🔑 بازیابی رمز عبور با پیامک تایید شبیه‌سازی‌شده")
+        st.subheader("🔑 بازیابی رمز عبور")
         
         if st.session_state.recovery_step == 0:
             st.session_state.recovery_step = 1
             
         if st.session_state.recovery_step == 1:
-            rec_phone = st.text_input("📞 شماره موبایل ثبت‌نامی خود را وارد کنید:")
+            rec_phone = st.text_input("📞 شماره موبایل ثبت‌نامی خود را وارد کنید:", key="rec_phone_input")
             if st.button("🛰️ ارسال کد تایید"):
                 if rec_phone in teachers_database:
                     st.session_state.recovery_phone = rec_phone
@@ -332,22 +361,22 @@ if not st.session_state.logged_in:
                     
         elif st.session_state.recovery_step == 2:
             st.write(f"کد ارسال شده به شماره {st.session_state.recovery_phone} را وارد کنید:")
-            user_otp = st.text_input("🔢 کد ۵ رقمی تایید:")
+            user_otp = st.text_input("🔢 کد ۵ رقمی تایید:", key="rec_otp_input")
             if st.button("🔬 بررسی کد"):
                 if user_otp == st.session_state.sent_otp:
-                    st.success("🔓 هویت شما با موفقیت تایید شد. لطفاً رمز عبور جدید را ثبت کنید.")
+                    st.success("🔓 هویت تایید شد. رمز جدید را وارد کنید.")
                     st.session_state.recovery_step = 3
                     st.rerun()
                 else:
                     st.error("❌ کد تایید نادرست است!")
                     
         elif st.session_state.recovery_step == 3:
-            new_pass = st.text_input("🔑 رمز عبور جدید:", type="password")
+            new_pass = st.text_input("🔑 رمز عبور جدید:", type="password", key="rec_new_pass_input")
             if st.button("💾 ذخیره رمز عبور جدید"):
                 if new_pass:
                     teachers_database[st.session_state.recovery_phone]["password"] = new_pass
                     save_teachers(teachers_database)
-                    st.success("✅ رمز عبور جدید با موفقیت ذخیره شد. اکنون با رمز جدید وارد شوید!")
+                    st.success("✅ رمز عبور جدید با موفقیت ذخیره شد.")
                     st.session_state.recovery_step = 1
                     st.session_state.recovery_phone = ""
                     st.session_state.sent_otp = ""
@@ -358,7 +387,7 @@ if not st.session_state.logged_in:
 # ----------------- بخش دوم: امکانات پس از احراز هویت موفق -----------------
 else:
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-    st.write(f"🟢 خوش آمدید! سطح دسترسی شما: **{st.session_state.user_role}**")
+    st.write(f"🟢 خوش آمدید! سطح دسترسی فعال شما: **{st.session_state.user_role}**")
     if st.button("🚪 خروج امن از سامانه"):
         st.session_state.logged_in = False
         st.session_state.user_role = None
@@ -407,7 +436,7 @@ else:
                 s_name = st.text_input("نام و نام خانوادگی دانش‌آموز:")
                 s_nid = st.text_input("کد ملی دانش‌آموز:")
                 st.write("تاریخ تولد:")
-                s_dob = date_picker_dropdown("add_student")
+                s_dob = date_picker_dropdown("add_student", default_year="1389", default_month="05", default_day="12")
                 s_class = st.text_input("کلاس:")
                 s_note = st.text_area("یادداشت راهنما روی پروژه دانش‌آموز:")
                 
@@ -450,14 +479,14 @@ else:
             months = st.slider("مدت زمان اشتراک (به ماه):", 1, 12, 3)
             price_per_month = 20000
             total_price = months * price_per_month
-            st.markdown(f"<div class='price-tag'>مبلغ قابل پرداخت: {total_price:,} تومان</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='price-tag' style='font-size:1.8rem; font-weight:bold; color:{current_theme['accent']};'>مبلغ قابل پرداخت: {total_price:,} تومان</div>", unsafe_allow_html=True)
         else:
             st.info("💡 در اشتراک مدارس، قیمت نهایی بر اساس تعداد دانش‌آموزان تحت پوشش محاسبه خواهد شد.")
             school_months = st.slider("مدت زمان اشتراک مدرسه (به ماه):", 1, 12, 9)
             student_count = st.number_input("تعداد دانش‌آموزان مدرسه شما:", min_value=1, max_value=2000, value=150)
             
             total_school_price = school_months * student_count * 1500
-            st.markdown(f"<div class='price-tag'>هزینه نهایی کل مدرسه: {total_school_price:,} تومان</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='price-tag' style='font-size:1.8rem; font-weight:bold; color:{current_theme['accent']};'>هزینه نهایی کل مدرسه: {total_school_price:,} تومان</div>", unsafe_allow_html=True)
             st.write(f"ℹ️ (به عبارتی برای هر دانش‌آموز فقط ماهی 1,500 تومان محاسبه شده است)")
             
         if st.button("💳 اتصال به درگاه پرداخت شتاب"):
@@ -473,4 +502,4 @@ with st.form("support_channel", clear_on_submit=True):
     if st.form_submit_button("🛰️ ارسال سیگنال پشتیبانی"):
         if user_contact and user_msg:
             st.success("✅ درخواست شما با موفقیت ارسال شد.")
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True) 
