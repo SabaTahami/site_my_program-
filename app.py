@@ -182,7 +182,7 @@ if selected_theme != st.session_state.theme_style:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # توسعه ساب‌روتین ساخت داینامیک انتخابگر کشویی تاریخ تولد برای دانش‌آموزان و مربیان
-def date_picker_dropdown(key_suffix, default_year="1390", default_month="07", default_day="17"):
+def date_picker_dropdown(key_suffix, default_year="1390", default_month="01", default_day="01"):
     col_y, col_m, col_d = st.columns(3)
     
     years_list = [str(y) for y in range(1350, 1401)]
@@ -273,15 +273,15 @@ if not st.session_state.logged_in:
                         st.session_state.captcha_code = str(random.randint(10000, 99999))
                         st.rerun()
                     
-        # بخش سوم ورود: پروتکل احراز هویت ۴ فاکتوره فوق امنیتی مدیریت کل (Super Admin Engine)
-        # استفاده از فیلدهای متنی غیرقابل نفوذ برای عدم ذخیره‌سازی اطلاعات در مرورگر و رفع قطعی باگ ورود
+        # بخش سوم ورود: پروتکل احراز هویت چندفاکتوره هسته مدیریت کل (Super Admin Engine)
+        # رفع باگ عدم ورود: استفاده از متدهای پاکسازی داده (Clean String) جهت سازگاری ورودی‌ها با فرمت دیتابیس
         elif auth_role == "👑 فاطمه صبا سادات تهامی نیا (مدیر ارشد)":
             admin_name = st.text_input("👤 نام و نام خانوادگی کامل شما:", key="login_adm_name", placeholder="نام کامل خود را اینجا تایپ کنید...")
             admin_pass = st.text_input("🔑 رمز عبور سیستمی شما:", type="password", key="login_adm_pass", placeholder="رمز عبور را تایپ کنید...")
             admin_nid = st.text_input("🪪 کد ملی شما:", key="login_adm_nid", placeholder="کد ملی ۱۰ رقمی را بنویسید...")
             
-            # بازطراحی بخش تاریخ تولد برای جلوگیری از اختلال در متغیرهای انتخابگر کشویی
-            admin_dob = st.text_input("📅 تاریخ تولد شما به صورت (روز/ماه/سال):", key="login_adm_dob", placeholder="مثال: ۱۳۹۰/۰۷/۱۷")
+            # رفع باگ حریم خصوصی: قرار دادن تاریخ تولد فرضی به عنوان مثال (Placeholder) جهت عدم افشای اطلاعات واقعی پیش داوران
+            admin_dob = st.text_input("📅 تاریخ تولد شما به صورت (روز/ماه/سال):", key="login_adm_dob", placeholder="مثال: 1390/01/01")
             
             st.markdown(f'<div class="captcha-box">{st.session_state.captcha_code}</div>', unsafe_allow_html=True)
             user_captcha = st.text_input("🔢 کد امنیتی ۵ رقمی بالا را وارد کنید:", key="login_adm_captcha")
@@ -292,11 +292,14 @@ if not st.session_state.logged_in:
                     st.session_state.captcha_code = str(random.randint(10000, 99999))
                     st.rerun()
                 else:
-                    # ساده‌سازی و پاکسازی کاراکترهای ورودی فارسی و لاتین جهت تطبیق ۱۰۰ درصد داده‌ها
+                    # گام امنیتی: نرمال‌سازی کامل رشته‌ها برای یکسان‌سازی حروف فارسی "ی" و "ک" و حذف فواصل اضافی قبل و بعد ورودی
                     normalized_name = admin_name.strip().replace("ی", "ی").replace("ک", "ک")
-                    normalized_dob = admin_dob.strip().replace("۱", "1").replace("۲", "2").replace("۳", "3").replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7").replace("۸", "8").replace("۹", "9").replace("۰", "0")
+                    
+                    # تبدیل تمامی اعداد فارسی ورودی به انگلیسی و یکسان‌سازی کاراکتر جداکننده جهت برقراری قطعی شرط ورود بدون باگ
+                    normalized_dob = admin_dob.strip().replace("۱", "1").replace("۲", "2").replace("۳", "3").replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7").replace("۸", "8").replace("۹", "9").replace("۰", "0").replace(" / ", "/").replace("/", "/")
                     normalized_nid = admin_nid.strip().replace("۱", "1").replace("۲", "2").replace("۳", "3").replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7").replace("۸", "8").replace("۹", "9").replace("۰", "0")
 
+                    # اعتبارسنجی نهایی شرط‌های دسترسی ریشه مدیریت کل
                     if (normalized_name == "فاطمه صبا سادات تهامی نیا" and
                         admin_pass == "Saba1390" and 
                         normalized_nid == "3080903801" and 
@@ -307,7 +310,7 @@ if not st.session_state.logged_in:
                         st.success("🔓 دسترسی ریشه فوق‌امنیتی صادر شد. مدیر کل فاطمه صبا سادات تهامی نیا خوش آمدید!")
                         st.rerun()
                     else:
-                        st.error("❌ اطلاعات ۴ فاکتوره تطبیق نداشت! لطفاً مطمئن شوید اطلاعات را دقیقاً وارد کرده‌اید.")
+                        st.error("❌ اطلاعات وارد شده تطبیق نداشت! لطفاً مطمئن شوید نام را به همراه پسوند سادات و تاریخ را به شکل صحیح وارد کرده‌اید.")
                         st.session_state.captcha_code = str(random.randint(10000, 99999))
                         st.rerun()
                     
