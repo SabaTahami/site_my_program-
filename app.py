@@ -214,7 +214,8 @@ if not st.session_state.logged_in:
         st.markdown('<div class="custom-card">', unsafe_allow_html=True)
         st.subheader("🔑 گیت ورود هوشمند")
         
-        auth_role = st.selectbox("🔒 انتخاب سطح دسترسی برای ورود:", ["🎯 دانش‌آموزان", "👩‍🏫 معلمان و داوران ثبت‌نامی", "👑 فاطمه صبا سادات تهامی نیا (مدیر ارشد)"])
+        # اصلاح نهایی برچسب نقش مدیریت ارشد به نام کاربری مستعار جهت رعایت حریم خصوصی مدیر سیستم پیش داوران
+        auth_role = st.selectbox("🔒 انتخاب سطح دسترسی برای ورود:", ["🎯 دانش‌آموزان", "👩‍🏫 معلمان و داوران ثبت‌نامی", "👑 صبا تهامی (مدیر ارشد)"])
         
         # بخش اول ورود: اعتبارسنجی اطلاعات هویتی دانش‌آموزان بر اساس دیتابیس حافظه موقت
         if auth_role == "🎯 دانش‌آموزان":
@@ -274,14 +275,13 @@ if not st.session_state.logged_in:
                         st.rerun()
                     
         # بخش سوم ورود: پروتکل احراز هویت چندفاکتوره هسته مدیریت کل (Super Admin Engine)
-        # رفع باگ عدم ورود: استفاده از متدهای پاکسازی داده (Clean String) جهت سازگاری ورودی‌ها با فرمت دیتابیس
-        elif auth_role == "👑 فاطمه صبا سادات تهامی نیا (مدیر ارشد)":
+        elif auth_role == "👑 صبا تهامی (مدیر ارشد)":
             admin_name = st.text_input("👤 نام و نام خانوادگی کامل شما:", key="login_adm_name", placeholder="نام کامل خود را اینجا تایپ کنید...")
             admin_pass = st.text_input("🔑 رمز عبور سیستمی شما:", type="password", key="login_adm_pass", placeholder="رمز عبور را تایپ کنید...")
             admin_nid = st.text_input("🪪 کد ملی شما:", key="login_adm_nid", placeholder="کد ملی ۱۰ رقمی را بنویسید...")
             
-            # رفع باگ حریم خصوصی: قرار دادن تاریخ تولد فرضی به عنوان مثال (Placeholder) جهت عدم افشای اطلاعات واقعی پیش داوران
-            admin_dob = st.text_input("📅 تاریخ تولد شما به صورت (روز/ماه/سال):", key="login_adm_dob", placeholder="مثال: 1390/01/01")
+            # اصلاح حریم خصوصی: قرار دادن یک مقدار پیش‌فرض کاملاً بی‌ربط و رندوم به عنوان نمونه هینت ورودی
+            admin_dob = st.text_input("📅 تاریخ تولد شما به صورت (روز/ماه/سال):", key="login_adm_dob", placeholder="مثال: 1380/05/20")
             
             st.markdown(f'<div class="captcha-box">{st.session_state.captcha_code}</div>', unsafe_allow_html=True)
             user_captcha = st.text_input("🔢 کد امنیتی ۵ رقمی بالا را وارد کنید:", key="login_adm_captcha")
@@ -292,25 +292,48 @@ if not st.session_state.logged_in:
                     st.session_state.captcha_code = str(random.randint(10000, 99999))
                     st.rerun()
                 else:
-                    # گام امنیتی: نرمال‌سازی کامل رشته‌ها برای یکسان‌سازی حروف فارسی "ی" و "ک" و حذف فواصل اضافی قبل و بعد ورودی
-                    normalized_name = admin_name.strip().replace("ی", "ی").replace("ک", "ک")
-                    
-                    # تبدیل تمامی اعداد فارسی ورودی به انگلیسی و یکسان‌سازی کاراکتر جداکننده جهت برقراری قطعی شرط ورود بدون باگ
-                    normalized_dob = admin_dob.strip().replace("۱", "1").replace("۲", "2").replace("۳", "3").replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7").replace("۸", "8").replace("۹", "9").replace("۰", "0").replace(" / ", "/").replace("/", "/")
-                    normalized_nid = admin_nid.strip().replace("۱", "1").replace("۲", "2").replace("۳", "3").replace("۴", "4").replace("۵", "5").replace("۶", "6").replace("۷", "7").replace("۸", "8").replace("۹", "9").replace("۰", "0")
+                    # --- معماری اختصاصی نرمال‌سازی داده‌ها (Data Sanitization Pipeline) ---
+                    # این ماژول را برای جلوگیری کامل از اختلال در کیبوردهای گوناگون، حروف عربی، انگلیسی و فواصل پنهان نوشتم.
+                    def robust_clean(text_input):
+                        if not text_input:
+                            return ""
+                        # حذف فواصل خالی اضافی اطراف و درون رشته
+                        cleaned = text_input.strip()
+                        # استانداردسازی حروف «ی» و «ک» در کیبوردهای متفاوت عربی و فارسی
+                        cleaned = cleaned.replace("ي", "ی").replace("ك", "ک")
+                        # تبدیل ارقام فارسی و عربی به انگلیسی جهت مقایسه عددی دقیق
+                        persian_digits = "۱۲۳۴۵۶۷۸۹۰"
+                        arabic_digits = "١٢٣٤٥٦٧٨٩٠"
+                        english_digits = "1234567890"
+                        for p, e in zip(persian_digits, english_digits):
+                            cleaned = cleaned.replace(p, e)
+                        for a, e in zip(arabic_digits, english_digits):
+                            cleaned = cleaned.replace(a, e)
+                        return cleaned
 
-                    # اعتبارسنجی نهایی شرط‌های دسترسی ریشه مدیریت کل
-                    if (normalized_name == "فاطمه صبا سادات تهامی نیا" and
-                        admin_pass == "Saba1390" and 
-                        normalized_nid == "3080903801" and 
-                        (normalized_dob == "1390/07/17" or normalized_dob == "1390/7/17")):
-                        
+                    # اعمال متد بهینه‌سازی شده برای اعتبارسنجی ۱۰۰٪ پایدار
+                    clean_name = robust_clean(admin_name).replace(" ", "")
+                    clean_pass = admin_pass.strip()
+                    clean_nid = robust_clean(admin_nid)
+                    
+                    # پاکسازی تاریخ تولد: حذف اسلش‌ها جهت مقایسه مستقل از استایل تایپ کاربر
+                    clean_dob = robust_clean(admin_dob).replace("/", "").replace("-", "").replace(" ", "")
+
+                    # بررسی لاگین با الگوریتم تطبیق رشته‌ای تمیز شده
+                    is_name_ok = (clean_name == "صباتهامی")
+                    is_pass_ok = (clean_pass == "Saba1390")
+                    is_nid_ok = (clean_nid == "3080903801")
+                    
+                    # پشتیبانی از هر دو حالت نوشتن ماه/روز به صورت تک‌رقمی یا دورقمی (مثال: 1390717 یا 13900717)
+                    is_dob_ok = (clean_dob == "13900717" or clean_dob == "1390717")
+
+                    if is_name_ok and is_pass_ok and is_nid_ok and is_dob_ok:
                         st.session_state.logged_in = True
                         st.session_state.user_role = "admin"
-                        st.success("🔓 دسترسی ریشه فوق‌امنیتی صادر شد. مدیر کل فاطمه صبا سادات تهامی نیا خوش آمدید!")
+                        st.success("🔓 دسترسی ریشه فوق‌امنیتی صادر شد. مدیر کل صبا تهامی خوش آمدید!")
                         st.rerun()
                     else:
-                        st.error("❌ اطلاعات وارد شده تطبیق نداشت! لطفاً مطمئن شوید نام را به همراه پسوند سادات و تاریخ را به شکل صحیح وارد کرده‌اید.")
+                        st.error("❌ اطلاعات ۴ فاکتوره تطبیق نداشت! لطفاً مطمئن شوید اطلاعات را دقیقاً وارد کرده‌اید.")
                         st.session_state.captcha_code = str(random.randint(10000, 99999))
                         st.rerun()
                     
@@ -468,7 +491,7 @@ else:
                         st.error("کامل کردن مشخصات هویتی دانش‌آموز الزامی است.")
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # پنل مدیریت کل (فاطمه صبا سادات تهامی نیا) به عنوان صاحب پلتفرم ملی خوارزمی
+        # پنل مدیریت کل (صبا تهامی) به عنوان صاحب پلتفرم ملی خوارزمی
         elif st.session_state.user_role == "admin":
             st.markdown('<div class="custom-card">', unsafe_allow_html=True)
             st.subheader("📊 اتاق فرمان مانیتورینگ کل کشور")
